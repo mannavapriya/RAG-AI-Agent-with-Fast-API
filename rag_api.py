@@ -48,9 +48,14 @@ retriever = vectorstore.as_retriever()
 
 # RAG chain setup
 contextualize_q_prompt = ChatPromptTemplate.from_messages(
-    [("system", "Rewrite user questions to be standalone."),
-     MessagesPlaceholder("chat_history"),
-     ("human", "{input}")]
+    [
+        ("system", 
+         "You are Nomi, a travel assistant. "
+         "You only answer questions related to travel, tourism, local spots, restaurants, hotels, events, and activities. "
+         "If the question is outside travel, respond politely: 'I'm sorry, I can only provide travel-related information.'\n\n{context}"),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}")
+    ]
 )
 history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
