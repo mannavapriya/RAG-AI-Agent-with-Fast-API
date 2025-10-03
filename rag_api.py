@@ -88,4 +88,9 @@ async def ask_question(req: QueryRequest):
         {"input": req.input},
         config={"configurable": {"session_id": req.session_id}}
     )
-    return {"answer": response["answer"]}
+    if isinstance(response, dict):
+        answer = response.get("answer", "")
+    else:
+        answer = str(response)
+    return {"answer": answer}
+
