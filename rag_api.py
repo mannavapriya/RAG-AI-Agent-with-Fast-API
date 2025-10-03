@@ -85,28 +85,22 @@ async def get_conversational_chain():
 async def ask_question(req: QueryRequest):
     try:
         chain = await get_conversational_chain()
-
+        temp_session_id = f"{req.session_id}_{os.urandom(4).hex()}"
+        
         response = chain.invoke(
             {"input": req.input},
-            config={"configurable": {"session_id": req.session_id}}
+            config={"configurable": {"session_id": temp_session_id}}
         )
-
-        print("Raw chain response:", response)
-
-        answer = ""
+        
         if isinstance(response, dict):
-            answer = response.get("answer") or response.get("output") or str(response)
+            answer = response.get("answer") or str(response)
         else:
             answer = str(response)
-
-        if not answer.strip():
-            answer = "Sorry, I couldn't generate a response."
-
-        return {"answer": answer}
+        
+        return {"answer": answer or "Sorry, no response generated."}
 
     except Exception as e:
         print("RAG chain error:", e)
         return {"answer": "Sorry, I couldn't process your request."}
-
 
 
