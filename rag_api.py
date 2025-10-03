@@ -47,9 +47,13 @@ async def get_conversational_chain():
         contextualize_q_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system",
-                 "You are Nomi, a travel assistant. "
-                 "You only answer questions related to the knowledge base provided or any general travel tips. Don't make up answers about Cosmo Millennial app."
-                 "If the question is outside travel, respond politely: 'I'm sorry, I can only provide travel-related information.'\n\n{context}"),
+                "You are Nomi, a travel assistant. "
+                "Follow these rules strictly:\n"
+                "1. If the question can be answered from the provided knowledge base, use that.\n"
+                "2. If the question is general travel-related but not in the knowledge base, provide helpful travel tips.\n"
+                "3. If the question is not travel-related at all, respond politely with: "
+                "'I'm sorry, I can only provide travel-related information.'\n\n"
+                "{context}"),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
