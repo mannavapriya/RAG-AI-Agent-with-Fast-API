@@ -1,1 +1,2 @@
-web: uvicorn rag_api:app --host=0.0.0.0 --port=${PORT}
+web: gunicorn -k uvicorn.workers.UvicornWorker app:app --workers=2 --timeout 60
+
