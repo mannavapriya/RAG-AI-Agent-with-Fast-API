@@ -80,13 +80,13 @@ conversational_rag_chain = RunnableWithMessageHistory(
     output_messages_key="answer",
 )
 
-app = FastAPI()
+rag_api = FastAPI()
 
 class QueryRequest(BaseModel):
     session_id: str
     input: str
 
-@app.post("/ask")
+@rag_api.post("/ask")
 async def ask_question(req: QueryRequest):
     response = conversational_rag_chain.invoke(
         {"input": req.input},
