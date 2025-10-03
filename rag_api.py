@@ -83,14 +83,22 @@ async def get_conversational_chain():
 
 @rag_api.post("/ask")
 async def ask_question(req: QueryRequest):
-    chain = await get_conversational_chain()
-    response = chain.invoke(
-        {"input": req.input},
-        config={"configurable": {"session_id": req.session_id}}
-    )
-    if isinstance(response, dict):
-        answer = response.get("answer", "")
-    else:
-        answer = str(response)
-    return {"answer": answer}
+    try:
+        chain = await get_conversational_chain()       
+        response = chain.invoke({"input": req.input},
+                                config={"configurable": {"session_id": req.session_id}})
+        
+        if isinstance(response, dict):
+            answer = response.get("answer")
+            if not answer:
+                answer = str(response)
+        else:
+            answer = str(response)
+        
+        answer = answer or ""
+        return {"answer": answer}
+    except Exception as e:
+        print("RAG chain error:", e)
+        return {"answer": "Sorry, I couldn't process your request."}
+
 
