@@ -21,13 +21,6 @@ if not GOOGLE_API_KEY:
 
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 
-# Load website docs
-loader = WebBaseLoader(
-    web_paths=("https://www.cosmo-millennial.com/",),
-    bs_kwargs=dict(parse_only=bs4.SoupStrainer(class_="content")),
-)
-web_docs = loader.load()
-
 csv_path = os.path.join(os.getcwd(), "knowledge_base.csv")
 if not os.path.exists(csv_path):
     raise FileNotFoundError(f"CSV file not found at {csv_path}")
@@ -36,10 +29,8 @@ df = pd.read_csv(csv_path)
 
 docs_csv = [Document(page_content=f"Q: {row['Question']}\nA: {row['Answer']}") for _, row in df.iterrows()]
 
-all_docs = web_docs + docs_csv
-
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-splits = text_splitter.split_documents(all_docs)
+splits = text_splitter.split_documents(docs_csv)
 
 embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
 
