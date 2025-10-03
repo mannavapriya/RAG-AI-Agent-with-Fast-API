@@ -48,7 +48,7 @@ async def get_conversational_chain():
             [
                 ("system",
                  "You are Nomi, a travel assistant. "
-                 "You only answer questions related to travel, tourism, local spots, restaurants, hotels, events, and activities. "
+                 "You only answer questions related to the knowledge base provided or any general travel tips. Don't make up answers about Cosmo Millennial app."
                  "If the question is outside travel, respond politely: 'I'm sorry, I can only provide travel-related information.'\n\n{context}"),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
