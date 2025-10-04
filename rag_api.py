@@ -47,10 +47,9 @@ async def get_conversational_chain():
         contextualize_q_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system",
-                 "You are Nomi, a travel assistant that helps identify the most relevant information "
-                 "from a fixed knowledge base of travel Q&A pairs. "
-                 "Rephrase the user's question only to improve retrieval. "
-                 "Do NOT answer questions. Do NOT add information."),
+                 "You are Nomi, a travel assistant. "
+                 "You only answer questions in the knowledge base provided. Don't make up answers about anything outside the knowledge base provided to you."
+                 "If the question is outside travel, respond politely: 'I'm sorry, I can only provide travel-related information.'\n\n{context}"),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
@@ -59,14 +58,7 @@ async def get_conversational_chain():
 
         qa_prompt = ChatPromptTemplate.from_messages(
             [
-                ("system",
-                 "You are Nomi, a travel assistant. "
-                 "You must strictly answer questions using only the information provided in the following knowledge base context.\n\n"
-                 "{context}\n\n"
-                 "Rules:\n"
-                 "1. If the answer is clearly found in the knowledge base context, return it exactly or paraphrase faithfully.\n"
-                 "2. If the answer is not present in the knowledge base context, reply exactly with: \"I'm sorry, I don't know.\"\n"
-                 "3. Do not make up, guess, or include any outside knowledge."),
+                ("system", "You are Nomi, a travel assistant.\n\n{context}"),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
@@ -94,24 +86,19 @@ async def ask_question(req: QueryRequest):
     try:
         chain = await get_conversational_chain()
         temp_session_id = f"{req.session_id}_{os.urandom(4).hex()}"
-
-        response = await chain.ainvoke(
+        
+        response = chain.invoke(
             {"input": req.input},
             config={"configurable": {"session_id": temp_session_id}}
         )
-
+        
         if isinstance(response, dict):
-            answer = response.get("answer") or response.get("output_text") or str(response)
+            answer = response.get("answer") or str(response)
         else:
             answer = str(response)
-
+        
         return {"answer": answer or "Sorry, no response generated."}
 
     except Exception as e:
-        import traceback
         print("RAG chain error:", e)
-        traceback.print_exc()
         return {"answer": "Sorry, I couldn't process your request."}
-
-
-
