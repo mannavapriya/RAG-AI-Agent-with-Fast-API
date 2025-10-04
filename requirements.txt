@@ -1,11 +1,9 @@
 fastapi
-gunicorn
-uvicorn[standard]
-pandas
-beautifulsoup4
+uvicorn
 langchain
 langchain-community
-langchain-core
-langchain-text-splitters
-langchain-google-genai
 chromadb
+pandas
+transformers
+torch
+sentence-transformers
