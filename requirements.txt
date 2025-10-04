@@ -1,9 +1,10 @@
 fastapi
 uvicorn
+gunicorn
+pandas
 langchain
 langchain-community
-chromadb
-pandas
+langchain-core
 transformers
-torch
 sentence-transformers
+faiss-cpu
