@@ -47,9 +47,10 @@ async def get_conversational_chain():
         contextualize_q_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system",
-                 "You are Nomi, a travel assistant. "
-                 "You only answer questions in the knowledge base provided. Don't make up answers about anything outside the knowledge base provided to you."
-                 "If the question is outside travel, respond politely: 'I'm sorry, I can only provide travel-related information.'\n\n{context}"),
+                 "You are Nomi, a travel assistant that helps identify the most relevant information "
+                 "from a fixed knowledge base of travel Q&A pairs. "
+                 "Rephrase the user's question only to improve retrieval. "
+                 "Do NOT answer questions. Do NOT add information."),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
@@ -59,19 +60,17 @@ async def get_conversational_chain():
         qa_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system",
-                "You are Nomi, a travel assistant. "
-                "You must answer questions using only the information provided in the following knowledge base context.\n\n"
-                "{context}\n\n"
-                "Rules:\n"
-                "1. Only use the text in the context. Do NOT use your internal knowledge.\n"
-                "2. If the answer is in the context, return it exactly or paraphrase faithfully.\n"
-                "3. If the answer is not in the context, reply exactly: \"I'm sorry, I don't know.\""
-                ),
+                 "You are Nomi, a travel assistant. "
+                 "You must strictly answer questions using only the information provided in the following knowledge base context.\n\n"
+                 "{context}\n\n"
+                 "Rules:\n"
+                 "1. If the answer is clearly found in the knowledge base context, return it exactly or paraphrase faithfully.\n"
+                 "2. If the answer is not present in the knowledge base context, reply exactly with: \"I'm sorry, I don't know.\"\n"
+                 "3. Do not make up, guess, or include any outside knowledge."),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
         )
-
         question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
         rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
@@ -95,19 +94,21 @@ async def ask_question(req: QueryRequest):
     try:
         chain = await get_conversational_chain()
         temp_session_id = f"{req.session_id}_{os.urandom(4).hex()}"
-        
-        response = chain.invoke(
+
+        response = await chain.ainvoke(
             {"input": req.input},
             config={"configurable": {"session_id": temp_session_id}}
         )
-        
+
         if isinstance(response, dict):
-            answer = response.get("answer") or str(response)
+            answer = response.get("answer") or response.get("output_text") or str(response)
         else:
             answer = str(response)
-        
+
         return {"answer": answer or "Sorry, no response generated."}
 
     except Exception as e:
+        import traceback
         print("RAG chain error:", e)
+        traceback.print_exc()
         return {"answer": "Sorry, I couldn't process your request."}
