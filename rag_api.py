@@ -37,12 +37,12 @@ async def get_conversational_chain():
         df = pd.read_csv(csv_path)
         docs_csv = [Document(page_content=f"Q: {row['Question']}\nA: {row['Answer']}") for _, row in df.iterrows()]
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
         splits = text_splitter.split_documents(docs_csv)
 
         embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
         vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
-        retriever = vectorstore.as_retriever()
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
         contextualize_q_prompt = ChatPromptTemplate.from_messages(
             [
