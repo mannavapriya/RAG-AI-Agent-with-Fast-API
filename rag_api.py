@@ -47,19 +47,14 @@ async def get_conversational_chain():
         contextualize_q_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system",
-                "You are Nomi, a travel assistant. "
-                "Your goal is to restate the user's current question clearly for searching the knowledge base. "
-                "Use the conversation history to resolve pronouns like 'it', 'this app', or 'the bot' — "
-                "only if the context clearly indicates what they refer to (for example, 'Cosmo Millennial'). "
-                "If the reference is unclear, leave it as-is. "
-                "Do not invent or assume meanings. "
-                "Do NOT answer the question. "
-                "Only return the clarified question text, ready to be searched."),
+                 "You are Nomi, a travel assistant that helps identify the most relevant information "
+                 "from a fixed knowledge base of travel Q&A pairs. "
+                 "Rephrase the user's question only to improve retrieval. "
+                 "Do NOT answer questions. Do NOT add information."),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
         )
-
         history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
         qa_prompt = ChatPromptTemplate.from_messages(
