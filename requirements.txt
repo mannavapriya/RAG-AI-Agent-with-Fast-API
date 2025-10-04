@@ -2,7 +2,6 @@ fastapi
 uvicorn
 gunicorn
 
-pandas
 langchain
 langchain-core
 langchain-community
@@ -11,6 +10,6 @@ transformers
 faiss-cpu
 huggingface-hub
 
-# Optional helpers
+pandas
 python-dotenv
 requests
