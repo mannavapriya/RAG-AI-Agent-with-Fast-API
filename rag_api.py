@@ -46,28 +46,25 @@ async def get_conversational_chain():
 
         contextualize_q_prompt = ChatPromptTemplate.from_messages([
             ("system",
-            "Restate the user's question for retrieval. Use history to resolve pronouns if clear. Do NOT answer or add information."),
+            "You are Nomi, a travel assistant. "
+            "Restate the user's question clearly for retrieval from the knowledge base. "
+            "Use conversation history to resolve pronouns only if the reference is clear. "
+            "Do NOT answer the question or add new information."),
             MessagesPlaceholder("chat_history"),
             ("human", "{input}")
         ])
 
+
         history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
-        qa_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system",
-                "You are Nomi, a travel assistant. "
-                "You must answer questions using only the information provided in the following knowledge base context.\n\n"
-                "{context}\n\n"
-                "Rules:\n"
-                "1. Only use the text in the context. Do NOT use your internal knowledge.\n"
-                "2. If the answer is in the context, return it exactly or paraphrase faithfully.\n"
-                "3. If the answer is not in the context, reply exactly: \"I'm sorry, I don't know.\""
-                ),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}")
-            ]
-        )
+        qa_prompt = ChatPromptTemplate.from_messages([
+            ("system",
+            "You are Nomi, a travel assistant. "
+            "Answer the question using only the provided knowledge base context.\n\n{context}\n\n"
+            "If the answer is not in the context, reply: \"I'm sorry, I don't know.\""),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}")
+        ])
 
         question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
         rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
