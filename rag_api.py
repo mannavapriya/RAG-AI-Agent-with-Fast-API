@@ -37,23 +37,20 @@ async def get_conversational_chain():
         df = pd.read_csv(csv_path)
         docs_csv = [Document(page_content=f"Q: {row['Question']}\nA: {row['Answer']}") for _, row in df.iterrows()]
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
         splits = text_splitter.split_documents(docs_csv)
 
         embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
         vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
-        retriever = vectorstore.as_retriever()
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-        contextualize_q_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system",
-                 "You are Nomi, a travel assistant. "
-                 "You only answer questions in the knowledge base provided. Don't make up answers about anything outside the knowledge base provided to you."
-                 "If the question is outside travel, respond politely: 'I'm sorry, I can only provide travel-related information.'\n\n{context}"),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}")
-            ]
-        )
+        contextualize_q_prompt = ChatPromptTemplate.from_messages([
+            ("system",
+            "Restate the user's question for retrieval. Use history to resolve pronouns if clear. Do NOT answer or add information."),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}")
+        ])
+
         history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
         qa_prompt = ChatPromptTemplate.from_messages(
