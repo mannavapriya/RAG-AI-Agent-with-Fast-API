@@ -47,13 +47,16 @@ async def get_conversational_chain():
         contextualize_q_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system",
-                 "You are Nomi, a travel assistant. "
-                 "You only answer questions related to travel, tourism, local spots, restaurants, hotels, events, and activities. "
-                 "If the question is outside travel, respond politely: 'I'm sorry, I can only provide travel-related information.'\n\n{context}"),
+                "You are Nomi, a travel assistant. "
+                "You only answer questions based strictly on the provided knowledge base context. "
+                "If the answer is not found in the context, reply exactly with: 'I don’t know.' "
+                "Do not make up information or provide general travel tips. "
+                "Here is the knowledge base context:\n\n{context}"),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
         )
+
         history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
         qa_prompt = ChatPromptTemplate.from_messages(
