@@ -42,7 +42,7 @@ async def get_conversational_chain():
 
         embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
         vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+        retriever = vectorstore.as_retriever()
 
         contextualize_q_prompt = ChatPromptTemplate.from_messages(
             [
