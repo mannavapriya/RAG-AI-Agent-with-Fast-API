@@ -47,9 +47,10 @@ async def get_conversational_chain():
         contextualize_q_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system",
-                 "You are Nomi, a travel assistant. "
-                 "You only answer questions in the knowledge base {context} "
-                 "If the question is outside this knowledge base, reply: 'I'm sorry, I don't know.'\n\n{context}"),
+                 "You are Nomi, a travel assistant that helps identify the most relevant information "
+                 "from a fixed knowledge base of travel Q&A pairs. "
+                 "Rephrase the user's question only to improve retrieval. "
+                 "Do NOT answer questions. Do NOT add information."),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
@@ -58,7 +59,14 @@ async def get_conversational_chain():
 
         qa_prompt = ChatPromptTemplate.from_messages(
             [
-                ("system", "You are Nomi, a travel assistant.\n\n{context}"),
+                ("system",
+                 "You are Nomi, a travel assistant. "
+                 "You must strictly answer questions using only the information provided in the following knowledge base context.\n\n"
+                 "{context}\n\n"
+                 "Rules:\n"
+                 "1. If the answer is clearly found in the knowledge base context, return it exactly or paraphrase faithfully.\n"
+                 "2. If the answer is not present in the knowledge base context, reply exactly with: \"I'm sorry, I don't know.\"\n"
+                 "3. Do not make up, guess, or include any outside knowledge."),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}")
             ]
