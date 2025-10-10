@@ -86,8 +86,6 @@ def load_pdf_to_pinecone(pdf_path: str):
     return vector_store
 
 vector_store = load_pdf_to_pinecone(PDF_PATH)
-
-
 # ----------------------------
 # LLM & RAG Chain
 # ----------------------------
