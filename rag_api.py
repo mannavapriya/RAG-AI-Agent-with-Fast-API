@@ -92,7 +92,7 @@ vector_store = load_pdf_to_pinecone(PDF_PATH)
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=GOOGLE_API_KEY,
-    temperature=0.2
+    temperature=0
 )
 
 memory = ConversationSummaryMemory(
@@ -105,7 +105,10 @@ memory = ConversationSummaryMemory(
 qa_prompt = PromptTemplate(
     input_variables=["chat_history", "context", "question"],
     template="""
-You are Nomi, a helpful assistant answering questions based ONLY on the provided notes.
+You are Nomi, a helpful assistant. You MUST answer questions using ONLY the information from the provided PDF notes.
+
+Do NOT provide any information that is not in the PDF. If the answer is not in the PDF, respond exactly:
+"The information is not in the notes."
 
 Context from notes:
 {context}
@@ -116,15 +119,10 @@ Chat History:
 Question:
 {question}
 
-Instructions:
-- Answer using ONLY the information in the context above.
-- If the answer is not contained in the context, respond exactly:
-  "The information is not in the knowledge base."
-- Provide a clear, concise answer.
-
 Answer:
 """
 )
+
 
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm=llm,
