@@ -129,7 +129,7 @@ qa_chain = ConversationalRetrievalChain.from_llm(
 # ----------------------------
 # FastAPI Endpoint
 # ----------------------------
-@app.post("/ask")
+@rag_api.post("/ask")
 async def ask_question(req: QueryRequest):
     try:
         result = qa_chain.invoke({"question": req.input})
