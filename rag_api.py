@@ -27,7 +27,7 @@ if not PINECONE_API_KEY:
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
 
 INDEX_NAME = "kb-index"
-PDF_PATH = "/content/KB.pdf"  # path to your PDF
+PDF_PATH = os.path.join(os.getcwd(), "KB.pdf")
 
 # ----------------------------
 # FastAPI App
