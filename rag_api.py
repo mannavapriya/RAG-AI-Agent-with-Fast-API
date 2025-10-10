@@ -9,6 +9,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts import PromptTemplate
+from langchain.memory import ConversationSummaryMemory
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PDFPlumberLoader
@@ -96,6 +97,13 @@ llm = ChatGoogleGenerativeAI(
     temperature=0
 )
 
+memory = ConversationSummaryMemory(
+    llm=llm,
+    memory_key="chat_history",
+    output_key="answer",
+    return_messages=True
+)
+
 qa_prompt = PromptTemplate(
     input_variables=["chat_history", "context", "question"],
     template="""
@@ -113,7 +121,7 @@ Question:
 Instructions:
 - Answer using ONLY the information in the context above.
 - If the answer is not contained in the context, respond exactly:
-  "The information is not in the notes."
+  "The information is not in the knowledge base."
 - Provide a clear, concise answer.
 """
 )
@@ -121,7 +129,7 @@ Instructions:
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm=llm,
     retriever=retriever,
-    memory=None,  # optional: add ConversationSummaryMemory if you want chat memory
+    memory=memory,
     combine_docs_chain_kwargs={"prompt": qa_prompt},
     return_source_documents=True
 )
