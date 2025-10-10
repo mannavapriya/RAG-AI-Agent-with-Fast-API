@@ -32,7 +32,7 @@ PDF_PATH = os.path.join(os.getcwd(), "KB.pdf")
 # ----------------------------
 # FastAPI App
 # ----------------------------
-app = FastAPI()
+rag_api = FastAPI()
 
 class QueryRequest(BaseModel):
     input: str

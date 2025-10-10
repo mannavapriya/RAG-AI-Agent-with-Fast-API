@@ -6,6 +6,7 @@ beautifulsoup4
 langchain
 langchain-pinecone
 langchain-google-genai
+langchain-community
 pypdf
 pdfplumber
 pinecone-client
