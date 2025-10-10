@@ -16,7 +16,6 @@ if not GOOGLE_API_KEY:
     raise ValueError("Missing GOOGLE_API_KEY. Set it in environment variables.")
 
 os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
-CHROMA_DIR = os.path.join(os.getcwd(), "chroma_db")
 
 # --- FastAPI App ---
 app = FastAPI()
@@ -24,15 +23,10 @@ app = FastAPI()
 class QueryRequest(BaseModel):
     input: str
 
-# --- Initialize Vectorstore ---
+# --- Initialize Vectorstore (in-memory, no persistence) ---
 def get_vectorstore():
     embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
 
-    if os.path.exists(CHROMA_DIR) and len(os.listdir(CHROMA_DIR)) > 0:
-        print("Loading existing Chroma index...")
-        return Chroma(persist_directory=CHROMA_DIR, embedding_function=embeddings)
-
-    print("Creating new Chroma index...")
     csv_path = os.path.join(os.getcwd(), "knowledge_base.csv")
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV file not found at {csv_path}")
@@ -44,12 +38,8 @@ def get_vectorstore():
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
     splits = text_splitter.split_documents(docs)
 
-    vectorstore = Chroma.from_documents(
-        documents=splits,
-        embedding=embeddings,
-        persist_directory=CHROMA_DIR
-    )
-    vectorstore.persist()
+    # In-memory Chroma index
+    vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
     return vectorstore
 
 vectorstore = get_vectorstore()
