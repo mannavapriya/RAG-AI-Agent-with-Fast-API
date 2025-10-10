@@ -86,7 +86,7 @@ def load_pdf_to_pinecone(pdf_path: str):
     return vector_store
 
 vector_store = load_pdf_to_pinecone(PDF_PATH)
-retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+
 
 # ----------------------------
 # LLM & RAG Chain
@@ -94,7 +94,7 @@ retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=GOOGLE_API_KEY,
-    temperature=0
+    temperature=0.2
 )
 
 memory = ConversationSummaryMemory(
@@ -107,7 +107,7 @@ memory = ConversationSummaryMemory(
 qa_prompt = PromptTemplate(
     input_variables=["chat_history", "context", "question"],
     template="""
-You are Nomi, a helpful assistant answering questions based ONLY on the provided knowledge base.
+You are Nomi, a helpful assistant answering questions based ONLY on the provided notes.
 
 Context from notes:
 {context}
@@ -123,12 +123,14 @@ Instructions:
 - If the answer is not contained in the context, respond exactly:
   "The information is not in the knowledge base."
 - Provide a clear, concise answer.
+
+Answer:
 """
 )
 
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm=llm,
-    retriever=retriever,
+    retriever=vector_store.as_retriever(search_kwargs={"k": 3}),
     memory=memory,
     combine_docs_chain_kwargs={"prompt": qa_prompt},
     return_source_documents=True
