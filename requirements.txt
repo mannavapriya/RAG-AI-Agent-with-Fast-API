@@ -4,8 +4,8 @@ uvicorn[standard]
 pandas
 beautifulsoup4
 langchain
-langchain-community
-langchain-core
-langchain-text-splitters
+langchain-pinecone
 langchain-google-genai
-chromadb
+pypdf
+pdfplumber
+pinecone-client

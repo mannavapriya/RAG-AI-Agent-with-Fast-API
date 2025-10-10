@@ -1,80 +1,140 @@
+# ----------------------------
+# Imports
+# ----------------------------
 import os
-import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel
-from langchain.docstore.document import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain.schema import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import create_retrieval_chain
-from langchain_community.vectorstores import Chroma
-from langchain_core.prompts import ChatPromptTemplate
+from langchain.chains import ConversationalRetrievalChain
+from langchain.prompts import PromptTemplate
+from langchain_pinecone import PineconeVectorStore
+from pinecone import Pinecone, ServerlessSpec
+from langchain_community.document_loaders import PDFPlumberLoader
 
-# --- Config ---
+# ----------------------------
+# Config
+# ----------------------------
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     raise ValueError("Missing GOOGLE_API_KEY. Set it in environment variables.")
-
 os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 
-# --- FastAPI App ---
+PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
+if not PINECONE_API_KEY:
+    raise ValueError("Missing PINECONE_API_KEY. Set it in environment variables.")
+os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
+
+INDEX_NAME = "kb-index"
+PDF_PATH = "/content/KB.pdf"  # path to your PDF
+
+# ----------------------------
+# FastAPI App
+# ----------------------------
 app = FastAPI()
 
 class QueryRequest(BaseModel):
     input: str
 
-# --- Initialize Vectorstore (in-memory, no persistence) ---
-def get_vectorstore():
-    embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
+# ----------------------------
+# Initialize Pinecone Index
+# ----------------------------
+pc = Pinecone(api_key=PINECONE_API_KEY)
 
-    csv_path = os.path.join(os.getcwd(), "knowledge_base.csv")
-    if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"CSV file not found at {csv_path}")
+if not pc.has_index(INDEX_NAME):
+    pc.create_index(
+        name=INDEX_NAME,
+        dimension=3072,  # Gemini embedding dimension
+        metric="cosine",
+        spec=ServerlessSpec(cloud="aws", region="us-east-1")
+    )
 
-    df = pd.read_csv(csv_path)
-    docs = [Document(page_content=row["Answer"], metadata={"question": row["Question"]})
-            for _, row in df.iterrows()]
+index = pc.Index(INDEX_NAME)
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
-    splits = text_splitter.split_documents(docs)
+# ----------------------------
+# Load PDF & Store in Pinecone
+# ----------------------------
+def load_pdf_to_pinecone(pdf_path: str):
+    # Load PDF
+    pdf_loader = PDFPlumberLoader(pdf_path)
+    pdf_docs = pdf_loader.load()
 
-    # In-memory Chroma index
-    vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
-    return vectorstore
+    # Split documents intelligently
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        separators=["\n\n", "\n", ".", "!", "?"]
+    )
+    split_docs = text_splitter.split_documents(pdf_docs)
 
-vectorstore = get_vectorstore()
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    # Generate embeddings
+    embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
-# --- LLM & RAG Chain ---
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY, temperature=0)
+    # Convert to LangChain documents
+    study_docs = [Document(page_content=doc.page_content, metadata=doc.metadata)
+                  for doc in split_docs]
 
-qa_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "You are Nomi, a travel assistant. "
-     "Answer the user's question using ONLY the context below. "
-     "Do not make up answers. "
-     "If the question is outside travel, respond politely: "
-     "'I'm sorry, I can only provide travel-related information.'\n\n"
-     "Context:\n{context}"),
-    ("human", "{input}")
-])
+    # Store in Pinecone
+    vector_store = PineconeVectorStore.from_documents(
+        documents=study_docs,
+        embedding=embed_model,
+        index_name=INDEX_NAME
+    )
 
-qa_chain = create_stuff_documents_chain(llm, qa_prompt)
-rag_chain = create_retrieval_chain(retriever, qa_chain)
+    return vector_store
 
-# --- FastAPI Endpoint ---
+vector_store = load_pdf_to_pinecone(PDF_PATH)
+retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+
+# ----------------------------
+# LLM & RAG Chain
+# ----------------------------
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    google_api_key=GOOGLE_API_KEY,
+    temperature=0
+)
+
+qa_prompt = PromptTemplate(
+    input_variables=["chat_history", "context", "question"],
+    template="""
+You are Nomi, a helpful assistant answering questions based ONLY on the provided knowledge base.
+
+Context from notes:
+{context}
+
+Chat History:
+{chat_history}
+
+Question:
+{question}
+
+Instructions:
+- Answer using ONLY the information in the context above.
+- If the answer is not contained in the context, respond exactly:
+  "The information is not in the notes."
+- Provide a clear, concise answer.
+"""
+)
+
+qa_chain = ConversationalRetrievalChain.from_llm(
+    llm=llm,
+    retriever=retriever,
+    memory=None,  # optional: add ConversationSummaryMemory if you want chat memory
+    combine_docs_chain_kwargs={"prompt": qa_prompt},
+    return_source_documents=True
+)
+
+# ----------------------------
+# FastAPI Endpoint
+# ----------------------------
 @app.post("/ask")
 async def ask_question(req: QueryRequest):
     try:
-        result = rag_chain.invoke({"input": req.input})
-
-        if isinstance(result, dict):
-            answer = result.get("answer") or str(result)
-        else:
-            answer = str(result)
-
+        result = qa_chain.invoke({"question": req.input})
+        answer = result.get("answer") if isinstance(result, dict) else str(result)
         return {"answer": answer or "Sorry, no response generated."}
-
     except Exception as e:
         print("RAG chain error:", e)
         return {"answer": "Sorry, I couldn't process your request."}
