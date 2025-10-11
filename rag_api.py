@@ -168,7 +168,6 @@ Answer:
 """
 )
 
-
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm=llm,
     retriever=vector_store.as_retriever(search_kwargs={"k": 5}),
