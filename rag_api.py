@@ -2,6 +2,7 @@
 # Imports
 # ----------------------------
 import os
+from time import sleep
 from fastapi import FastAPI
 from pydantic import BaseModel
 from langchain.schema import Document
@@ -39,70 +40,68 @@ class QueryRequest(BaseModel):
     input: str
 
 # ----------------------------
-# Initialize Pinecone Index
+# Pinecone Setup
 # ----------------------------
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
-if not pc.has_index(INDEX_NAME):
+# Create index only if it doesn't exist
+if INDEX_NAME not in [i["name"] for i in pc.list_indexes()]:
+    print(f"Creating Pinecone index: {INDEX_NAME}")
     pc.create_index(
         name=INDEX_NAME,
-        dimension=3072,  # Gemini embedding dimension
+        dimension=3072,
         metric="cosine",
         spec=ServerlessSpec(cloud="aws", region="us-east-1")
     )
+    sleep(10)
 
 index = pc.Index(INDEX_NAME)
 
 # ----------------------------
-# Load PDF & Store in Pinecone
+# Helper to check if index has data
+# ----------------------------
+def index_is_empty(index) -> bool:
+    stats = index.describe_index_stats()
+    return stats.get("total_vector_count", 0) == 0
+
+# ----------------------------
+# Load PDF to Pinecone (only once)
 # ----------------------------
 def load_pdf_to_pinecone(pdf_path: str):
-    # Load PDF
     pdf_loader = PDFPlumberLoader(pdf_path)
     pdf_docs = pdf_loader.load()
 
-    # Split documents intelligently
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
-        separators=["\n\n", "\n", ".", "!", "?"]
-    )
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     split_docs = text_splitter.split_documents(pdf_docs)
 
-    # Generate embeddings
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
-    embeddings_list = []
-    for doc in split_docs:
-        vector = embed_model.embed_query(doc.page_content)
-        embeddings_list.append({
-            "text": doc.page_content,
-            "embedding": vector,
-            "metadata": doc.metadata
-        })
-    # Convert to LangChain documents
-    study_docs = []
-
-    for item in embeddings_list:
-        study_docs.append(
-            Document(
-                page_content=item["text"],
-                metadata=item["metadata"]
-            )
-        )
-
-    # Store in Pinecone
-    vector_store = PineconeVectorStore.from_documents(
-        documents=study_docs,
+    # Store directly in Pinecone
+    PineconeVectorStore.from_documents(
+        documents=split_docs,
         embedding=embed_model,
         index_name=INDEX_NAME
     )
+    print("✅ KB.pdf successfully embedded into Pinecone.")
 
-    return vector_store
-
-vector_store = load_pdf_to_pinecone(PDF_PATH)
 # ----------------------------
-# LLM & RAG Chain
+# Initialize Vector Store
+# ----------------------------
+embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+
+if index_is_empty(index):
+    print("📘 Index is empty — embedding KB.pdf...")
+    load_pdf_to_pinecone(PDF_PATH)
+else:
+    print("✅ Existing index found — skipping reindexing.")
+
+vector_store = PineconeVectorStore.from_existing_index(
+    embedding=embed_model,
+    index_name=INDEX_NAME
+)
+
+# ----------------------------
+# LLM + Memory + Prompt
 # ----------------------------
 llm = GoogleGenerativeAI(model="gemini-2.5-flash")
 
@@ -133,7 +132,6 @@ Question:
 Answer:
 """
 )
-
 
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm=llm,
