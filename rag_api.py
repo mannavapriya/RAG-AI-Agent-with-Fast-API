@@ -62,22 +62,29 @@ def normalize_text(text: str) -> str:
     """
     return " ".join(text.lower().split())
 
+
 def split_pdf_by_questions(pdf_docs):
     """
-    Splits the PDF into Q&A chunks so each chunk = question + answer.
+    Splits PDF content into clean Q&A chunks.
     """
-    # Combine all pages and normalize
-    full_text = normalize_text("\n".join([doc.page_content for doc in pdf_docs]))
-    
-    # Split at question numbers (number + dot + space)
-    qa_chunks = re.findall(r'(\d+\..*?)(?=\d+\.|$)', full_text, flags=re.DOTALL)
-
     documents = []
-    for chunk in qa_chunks:
-        chunk = chunk.strip()
-        if chunk:
-            documents.append(Document(page_content=chunk))
+    
+    for doc in pdf_docs:
+        text = doc.page_content
+        # Remove excessive whitespace but keep newlines for splitting
+        text = re.sub(r'[ \t]+', ' ', text)
+        text = text.strip()
+        
+        # Find all questions (number + dot + optional space) and their answers
+        qa_chunks = re.findall(r'(\d+\..*?)(?=(?:\d+\.|$))', text, flags=re.DOTALL)
+        
+        for chunk in qa_chunks:
+            chunk = chunk.strip()
+            if chunk:
+                documents.append(Document(page_content=chunk))
+    
     return documents
+
 
 # ----------------------------
 # Load PDF & Store in Pinecone
