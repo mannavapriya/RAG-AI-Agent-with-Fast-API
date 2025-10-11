@@ -63,8 +63,8 @@ def load_doc_to_pinecone(kb_path: str):
     docs = txt_loader.load()
 
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=2000,
-        chunk_overlap=200,
+        chunk_size=700,
+        chunk_overlap=100,
         separators=["\n\n", "\n", ".", "!", "?"]
     )
 
