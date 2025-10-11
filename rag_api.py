@@ -13,7 +13,7 @@ from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationSummaryMemory
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
-from langchain_community.document_loaders import PDFPlumberLoader
+from langchain.document_loaders import TextLoader
 
 # ----------------------------
 # Config
@@ -29,7 +29,7 @@ if not PINECONE_API_KEY:
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
 
 INDEX_NAME = "kb-index"
-PDF_PATH = os.path.join(os.getcwd(), "KB.pdf")
+KB_PATH = os.path.join(os.getcwd(), "KB.txt")
 
 # ----------------------------
 # FastAPI App
@@ -54,47 +54,21 @@ if not pc.has_index(INDEX_NAME):
 
 index = pc.Index(INDEX_NAME)
 
-def normalize_text(text: str) -> str:
-    """
-    Normalize text for embedding and retrieval:
-    - Lowercase everything
-    - Remove extra spaces and newlines
-    """
-    return " ".join(text.lower().split())
-
-
-def split_pdf_by_questions(pdf_docs):
-    """
-    Splits PDF content into clean Q&A chunks.
-    """
-    documents = []
-    
-    for doc in pdf_docs:
-        text = doc.page_content
-        # Remove excessive whitespace but keep newlines for splitting
-        text = re.sub(r'[ \t]+', ' ', text)
-        text = text.strip()
-        
-        # Find all questions (number + dot + optional space) and their answers
-        qa_chunks = re.findall(r'(\d+\..*?)(?=(?:\d+\.|$))', text, flags=re.DOTALL)
-        
-        for chunk in qa_chunks:
-            chunk = chunk.strip()
-            if chunk:
-                documents.append(Document(page_content=chunk))
-    
-    return documents
-
-
 # ----------------------------
 # Load PDF & Store in Pinecone
 # ----------------------------
-def load_pdf_to_pinecone(pdf_path: str):
+def load_doc_to_pinecone(kb_path: str):
     # Load PDF
-    pdf_loader = PDFPlumberLoader(pdf_path)
-    pdf_docs = pdf_loader.load()
+    txt_loader = TextLoader(kb_path, encoding="utf-8")
+    docs = txt_loader.load()
 
-    split_docs = split_pdf_by_questions(pdf_docs)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=2000,
+        chunk_overlap=200,
+        separators=["\n\n", "\n", ".", "!", "?"]
+    )
+
+    split_docs = text_splitter.split_documents(docs)
 
     # Generate embeddings
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
@@ -133,7 +107,7 @@ def load_pdf_to_pinecone(pdf_path: str):
 stats = index.describe_index_stats()
 if stats.get("total_vector_count", 0) == 0:
     print("Pinecone index is empty — loading KB.pdf into Pinecone...")
-    vector_store = load_pdf_to_pinecone(PDF_PATH)
+    vector_store = load_doc_to_pinecone(KB_PATH)
 else:
     print("Existing data found in Pinecone — skipping reindexing.")
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
@@ -189,8 +163,7 @@ qa_chain = ConversationalRetrievalChain.from_llm(
 @rag_api.post("/ask")
 async def ask_question(req: QueryRequest):
     try:
-        query = normalize_text(req.input)
-        result = qa_chain.invoke({"question": query})
+        result = qa_chain.invoke({"question": req.input})
         answer = result.get("answer") if isinstance(result, dict) else str(result)
         return {"answer": answer or "Sorry, no response generated."}
     except Exception as e:
