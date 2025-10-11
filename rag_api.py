@@ -2,6 +2,7 @@
 # Imports
 # ----------------------------
 import os
+import re
 from fastapi import FastAPI
 from pydantic import BaseModel
 from langchain.schema import Document
@@ -53,6 +54,27 @@ if not pc.has_index(INDEX_NAME):
 
 index = pc.Index(INDEX_NAME)
 
+def split_pdf_by_questions(pdf_docs):
+    """
+    Splits the PDF into chunks where each chunk = one Q&A pair.
+    Ensures questions and answers stay together.
+    """
+    # Combine all pages into one text
+    full_text = "\n".join([doc.page_content for doc in pdf_docs])
+
+    # Split by numbered questions (1., 2., 3., ...)
+    # The regex keeps the number at the start of each chunk
+    pattern = r'(?=\d+\.\s)'
+    qa_chunks = re.split(pattern, full_text)
+
+    documents = []
+    for chunk in qa_chunks:
+        chunk = chunk.strip()
+        if chunk:
+            documents.append(Document(page_content=chunk))
+
+    return documents
+
 # ----------------------------
 # Load PDF & Store in Pinecone
 # ----------------------------
@@ -61,12 +83,7 @@ def load_pdf_to_pinecone(pdf_path: str):
     pdf_loader = PDFPlumberLoader(pdf_path)
     pdf_docs = pdf_loader.load()
 
-    # Split documents intelligently
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
-    )
-    split_docs = text_splitter.split_documents(pdf_docs)
+    split_docs = split_pdf_by_questions(pdf_docs)
 
     # Generate embeddings
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
