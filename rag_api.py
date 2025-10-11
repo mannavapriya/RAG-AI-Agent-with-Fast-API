@@ -54,18 +54,6 @@ if not pc.has_index(INDEX_NAME):
 
 index = pc.Index(INDEX_NAME)
 
-def split_doc_by_numbered_qa(docs):
-    full_text = "\n".join([doc.page_content for doc in docs])
-
-    # Split at numbers followed by dot and space
-    pattern = r'(?=\d+\.\s)'  # positive lookahead
-    chunks = re.split(pattern, full_text)
-
-    # Clean empty strings and extra spaces
-    qa_docs = [Document(page_content=chunk.strip()) for chunk in chunks if chunk.strip()]
-    
-    return qa_docs
-
 # ----------------------------
 # Load PDF & Store in Pinecone
 # ----------------------------
@@ -74,7 +62,13 @@ def load_doc_to_pinecone(kb_path: str):
     txt_loader = TextLoader(kb_path, encoding="utf-8")
     docs = txt_loader.load()
 
-    split_docs = split_doc_by_numbered_qa(docs)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1500,
+        chunk_overlap=200,
+        separators=["\d+\. "]
+    )
+
+    split_docs = text_splitter.split_documents(docs)
 
     # Generate embeddings
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
