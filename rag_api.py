@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationSummaryMemory
@@ -89,11 +89,7 @@ vector_store = load_pdf_to_pinecone(PDF_PATH)
 # ----------------------------
 # LLM & RAG Chain
 # ----------------------------
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    google_api_key=GOOGLE_API_KEY,
-    temperature=0
-)
+llm = GoogleGenerativeAI(model="gemini-2.5-flash")
 
 memory = ConversationSummaryMemory(
     llm=llm,
