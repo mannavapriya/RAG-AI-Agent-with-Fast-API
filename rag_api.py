@@ -54,6 +54,19 @@ if not pc.has_index(INDEX_NAME):
 
 index = pc.Index(INDEX_NAME)
 
+def split_doc_by_qa(docs):
+    """
+    Splits the loaded text so that each chunk = one full Q&A pair.
+    """
+    full_text = "\n".join([doc.page_content for doc in docs])
+
+    # Regex: matches from number-dot to next number-dot (non-greedy)
+    pattern = r'(\d+\..*?)(?=\d+\.|$)'
+    matches = re.findall(pattern, full_text, flags=re.S)
+
+    qa_docs = [Document(page_content=match.strip()) for match in matches if match.strip()]
+    return qa_docs
+
 # ----------------------------
 # Load PDF & Store in Pinecone
 # ----------------------------
@@ -62,13 +75,7 @@ def load_doc_to_pinecone(kb_path: str):
     txt_loader = TextLoader(kb_path, encoding="utf-8")
     docs = txt_loader.load()
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=2000,
-        chunk_overlap=100,
-        separators=["\n\n", "\n", ".", "!", "?"]
-    )
-
-    split_docs = text_splitter.split_documents(docs)
+    split_docs = split_doc_by_qa(docs)
 
     # Generate embeddings
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
