@@ -54,25 +54,29 @@ if not pc.has_index(INDEX_NAME):
 
 index = pc.Index(INDEX_NAME)
 
+def normalize_text(text: str) -> str:
+    """
+    Normalize text for embedding and retrieval:
+    - Lowercase everything
+    - Remove extra spaces and newlines
+    """
+    return " ".join(text.lower().split())
+
 def split_pdf_by_questions(pdf_docs):
     """
-    Splits the PDF into chunks where each chunk = one Q&A pair.
-    Ensures questions and answers stay together.
+    Splits the PDF into Q&A chunks so each chunk = question + answer.
     """
-    # Combine all pages into one text
-    full_text = "\n".join([doc.page_content for doc in pdf_docs])
-
-    # Split by numbered questions (1., 2., 3., ...)
-    # The regex keeps the number at the start of each chunk
-    pattern = r'(?=\d+\.\s)'
-    qa_chunks = re.split(pattern, full_text)
+    # Combine all pages and normalize
+    full_text = normalize_text("\n".join([doc.page_content for doc in pdf_docs]))
+    
+    # Split at question numbers (number + dot + space)
+    qa_chunks = re.split(r'(?=\d+\.\s)', full_text)
 
     documents = []
     for chunk in qa_chunks:
         chunk = chunk.strip()
         if chunk:
             documents.append(Document(page_content=chunk))
-
     return documents
 
 # ----------------------------
@@ -167,7 +171,7 @@ Answer:
 
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm=llm,
-    retriever=vector_store.as_retriever(search_kwargs={"k": 3}),
+    retriever=vector_store.as_retriever(search_kwargs={"k": 5}),
     memory=memory,
     combine_docs_chain_kwargs={"prompt": qa_prompt},
     return_source_documents=True
