@@ -72,9 +72,24 @@ def load_pdf_to_pinecone(pdf_path: str):
     # Generate embeddings
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
+    embeddings_list = []
+    for doc in split_docs:
+        vector = embed_model.embed_query(doc.page_content)
+        embeddings_list.append({
+            "text": doc.page_content,
+            "embedding": vector,
+            "metadata": doc.metadata
+        })
     # Convert to LangChain documents
-    study_docs = [Document(page_content=doc.page_content, metadata=doc.metadata)
-                  for doc in split_docs]
+    study_docs = []
+
+    for item in embeddings_list:
+        study_docs.append(
+            Document(
+                page_content=item["text"],
+                metadata=item["metadata"]
+            )
+        )
 
     # Store in Pinecone
     vector_store = PineconeVectorStore.from_documents(
