@@ -70,7 +70,7 @@ def split_pdf_by_questions(pdf_docs):
     full_text = normalize_text("\n".join([doc.page_content for doc in pdf_docs]))
     
     # Split at question numbers (number + dot + space)
-    qa_chunks = re.split(r'(?=\d+\.\s)', full_text)
+    qa_chunks = re.findall(r'(\d+\..*?)(?=\d+\.|$)', full_text, flags=re.DOTALL)
 
     documents = []
     for chunk in qa_chunks:
@@ -182,7 +182,8 @@ qa_chain = ConversationalRetrievalChain.from_llm(
 @rag_api.post("/ask")
 async def ask_question(req: QueryRequest):
     try:
-        result = qa_chain.invoke({"question": req.input})
+        query = normalize_text(req.input)
+        result = qa_chain.invoke({"question": query})
         answer = result.get("answer") if isinstance(result, dict) else str(result)
         return {"answer": answer or "Sorry, no response generated."}
     except Exception as e:
